@@ -6,6 +6,8 @@ import torch.nn.functional as F
 import torchvision
 import torchvision.transforms as transforms
 
+import sys
+
 import cv2
 
 # HYPERPARAMETERS
@@ -15,7 +17,7 @@ train_validation_split = 4/5
 log_interval = 10
 lr = 0.01
 momentum = 0.9
-num_epochs = 5
+num_epochs = 3
 
 def prepare_data():
     training_path = 'data/Kaggle_data/TRAIN/'
@@ -40,10 +42,10 @@ class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
 
-        self.conv1 = nn.Conv2d(3,48,11,stride=4) # read in color image
-        self.conv2 = nn.Conv2d(48,128,5)
-        self.conv3 = nn.Conv2d(128,192,3)
-        self.fc1 = nn.Linear(11*11*192,100)
+        self.conv1 = nn.Conv2d(3,6,5) # read in color image
+        self.conv2 = nn.Conv2d(6,128,5)
+        self.fc1 = nn.Linear(61*61*128,100)
+        self.fc2 = nn.Linear(100,2)
 
         self._initialize_weights()
 
@@ -53,19 +55,17 @@ class Net(nn.Module):
     def forward(self, x):
         # start with 256 x 256 x 3 image
         x = F.relu(self.conv1(x))
-        # have 62 x 62 x 48 data
+        # have 252 x 252 x 6 data
         x = F.max_pool2d(x, 2, stride=2)
-        # have 31 x 31 x 48 data
+        # have 126 x 126 x 6 data
         x = F.relu(self.conv2(x))
-        # have 27 x 27 x 128 data
+        # have 122 x 122 x 128 data
         x = F.max_pool2d(x, 2, stride=2)
-        # have 13 x 13 x 128 data
-        x = F.relu(self.conv3(x))
-        # have 11 x 11 x 192 data
+        # have 61 x 61 x 128 data
         x = torch.flatten(x, start_dim=1)
-        # have 6272 x 1 data
-        x = F.softmax(self.fc1(x),dim=1)
-        # softmax to get 1 x 1 data
+        # have 6912 x 1 data
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
         return x
 
 def train(model, criterion, train_loader, optimizer, device):
@@ -111,23 +111,34 @@ def main():
     print('Validation set size: {}'.format(len(val_set)))
     print('Test set size: {}'.format(len(test_set)))
 
-    model = Net()
-    model.to(device)
+    if (len(sys.argv) == 1):
+        model = Net()
+        model.to(device)
 
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(
-        model.parameters(),
-        lr = lr,
-        momentum = momentum
-    )
+        criterion = nn.CrossEntropyLoss()
+        optimizer = torch.optim.SGD(
+            model.parameters(),
+            lr = lr,
+            momentum = momentum
+        )
 
-    for e in range(num_epochs):
-        print('Training epoch {}'.format(e))
-        train(model, criterion, train_loader, optimizer, device)
+        for e in range(num_epochs):
+            print('Training epoch {}'.format(e))
+            train(model, criterion, train_loader, optimizer, device)
+            print('Testing on validation set')
+            test(model, val_loader, device)
+
+        torch.save(model, 'model.pt')
+
+    else:
+        model = torch.load(sys.argv[1])
+        model.to(device)
+
+        print('Testing on training set')
+        test(model, train_loader, device)
         print('Testing on validation set')
         test(model, val_loader, device)
 
-    torch.save(model, 'model.pt')
 
 
 if __name__ == '__main__':

@@ -12,10 +12,10 @@ import cv2
 train_batch_size = 64
 test_batch_size = 64
 train_validation_split = 4/5
-log_interval = 20
+log_interval = 10
 lr = 0.01
 momentum = 0.9
-num_epochs = 3
+num_epochs = 5
 
 def prepare_data():
     training_path = 'data/Kaggle_data/TRAIN/'
@@ -39,9 +39,11 @@ def prepare_data():
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(3,6,5) # read in color image
-        self.conv2 = nn.Conv2d(6,16,5)
-        self.fc3 = nn.Linear(61*61*16,10)
+
+        self.conv1 = nn.Conv2d(3,48,11,stride=4) # read in color image
+        self.conv2 = nn.Conv2d(48,128,5)
+        self.conv3 = nn.Conv2d(128,192,3)
+        self.fc1 = nn.Linear(11*11*192,100)
 
         self._initialize_weights()
 
@@ -51,16 +53,19 @@ class Net(nn.Module):
     def forward(self, x):
         # start with 256 x 256 x 3 image
         x = F.relu(self.conv1(x))
-        # have 252 x 252 x 6 data
+        # have 62 x 62 x 48 data
         x = F.max_pool2d(x, 2, stride=2)
-        # have 126 x 126 x 6 data
+        # have 31 x 31 x 48 data
         x = F.relu(self.conv2(x))
-        # have 122 x 122 x 16 data
+        # have 27 x 27 x 128 data
         x = F.max_pool2d(x, 2, stride=2)
-        # have 61 x 61 x 16 data
+        # have 13 x 13 x 128 data
+        x = F.relu(self.conv3(x))
+        # have 11 x 11 x 192 data
         x = torch.flatten(x, start_dim=1)
-        # have 59536 x 1 data
-        x = self.fc3(x)
+        # have 6272 x 1 data
+        x = F.softmax(self.fc1(x),dim=1)
+        # softmax to get 1 x 1 data
         return x
 
 def train(model, criterion, train_loader, optimizer, device):
@@ -122,6 +127,7 @@ def main():
         print('Testing on validation set')
         test(model, val_loader, device)
 
+    torch.save(model, 'model.pt')
 
 
 if __name__ == '__main__':

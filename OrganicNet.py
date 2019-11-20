@@ -5,10 +5,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
 import torchvision.transforms as transforms
+import torchvision.models as models
+import numpy as np
 
 import sys
 
-import cv2
+# For use when running with Google Colab
+# from google.colab import drive
+# drive.mount('/content/drive/')
 
 # HYPERPARAMETERS
 train_batch_size = 64
@@ -33,40 +37,40 @@ def prepare_data():
     val_loader = torch.utils.data.DataLoader(val_set,batch_size=test_batch_size,num_workers=0,shuffle=True)
 
     testing_path = 'data/Kaggle_data/TEST/'
-    test_set = torchvision.datasets.ImageFolder(root=testing_path,transform=torchvision.transforms.ToTensor())
+    test_set = torchvision.datasets.ImageFolder(root=testing_path,transform=transforms.Compose([transforms.RandomCrop([256,256],pad_if_needed=True), transforms.ToTensor()]))
     test_loader = torch.utils.data.DataLoader(test_set,batch_size=test_batch_size,num_workers=0,shuffle=True)
 
     return train_set, val_set, test_set, train_loader, val_loader, test_loader
 
-class Net(nn.Module):
-    def __init__(self):
-        super(Net, self).__init__()
-
-        self.conv1 = nn.Conv2d(3,6,5) # read in color image
-        self.conv2 = nn.Conv2d(6,128,5)
-        self.fc1 = nn.Linear(61*61*128,100)
-        self.fc2 = nn.Linear(100,2)
-
-        self._initialize_weights()
-
-    def _initialize_weights(self):
-        pass
-
-    def forward(self, x):
-        # start with 256 x 256 x 3 image
-        x = F.relu(self.conv1(x))
-        # have 252 x 252 x 6 data
-        x = F.max_pool2d(x, 2, stride=2)
-        # have 126 x 126 x 6 data
-        x = F.relu(self.conv2(x))
-        # have 122 x 122 x 128 data
-        x = F.max_pool2d(x, 2, stride=2)
-        # have 61 x 61 x 128 data
-        x = torch.flatten(x, start_dim=1)
-        # have 6912 x 1 data
-        x = F.relu(self.fc1(x))
-        x = self.fc2(x)
-        return x
+# class Net(nn.Module):
+#     def __init__(self):
+#         super(Net, self).__init__()
+#
+#         self.conv1 = nn.Conv2d(3,6,5) # read in color image
+#         self.conv2 = nn.Conv2d(6,128,5)
+#         self.fc1 = nn.Linear(61*61*128,100)
+#         self.fc2 = nn.Linear(100,2)
+#
+#         self._initialize_weights()
+#
+#     def _initialize_weights(self):
+#         pass
+#
+#     def forward(self, x):
+#         # start with 256 x 256 x 3 image
+#         x = F.relu(self.conv1(x))
+#         # have 252 x 252 x 6 data
+#         x = F.max_pool2d(x, 2, stride=2)
+#         # have 126 x 126 x 6 data
+#         x = F.relu(self.conv2(x))
+#         # have 122 x 122 x 128 data
+#         x = F.max_pool2d(x, 2, stride=2)
+#         # have 61 x 61 x 128 data
+#         x = torch.flatten(x, start_dim=1)
+#         # have 6912 x 1 data
+#         x = F.relu(self.fc1(x))
+#         x = self.fc2(x)
+#         return x
 
 def train(model, criterion, train_loader, optimizer, device):
     model.train() # set the mode of the model to training
@@ -112,7 +116,7 @@ def main():
     print('Test set size: {}'.format(len(test_set)))
 
     if (len(sys.argv) == 1):
-        model = Net()
+        model = models.resnet18(pretrained=True)
         model.to(device)
 
         criterion = nn.CrossEntropyLoss()
